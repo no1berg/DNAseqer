@@ -1,6 +1,8 @@
 # A light weight DNA to RNA transcription tool
 
 # Define the standard codon table as a constant for efficiency.
+
+
 CODON_TABLE = {
     # Phenylalanine (F)
     'UUU': 'F', 'UUC': 'F',
@@ -54,6 +56,12 @@ def get_dna_sequence() -> str:
         raise ValueError("Invalid DNA sequence. Please use only A, T, C, and G.")
     return dna_sequence.upper()
 
+# Generate the reverse complement of a DNA sequence
+def reverse_complement(dna_sequence: str) -> str:
+    """Generates the reverse complement of a DNA sequence."""
+    complement_map = str.maketrans('ATCG', 'TAGC')
+    return dna_sequence.upper().translate(complement_map)[::-1]
+
 # Find the length of the DNA sequence
 def get_dna_length(dna_sequence: str) -> int:
     return len(dna_sequence)
@@ -73,19 +81,35 @@ def transcribe_dna_to_rna(dna_sequence: str) -> str:
     return dna_sequence.replace('T', 'U')
 
 # Find all open reading frames (ORFs)
-def find_open_reading_frames(dna_sequence:str) -> list:
-    """Finds all ORFs on one strand of a DNA sequence."""
-    ORFs = []
-    start_codon = "ATG"
-    stop_codons = ["TAA", "TAG", "TGA"]
-    sequence_length = len(dna_sequence)
-    for i in range(sequence_length - 2):
-        if dna_sequence[i:i+3] == start_codon:
-            for j in range(i + 3, sequence_length - 2, 3):
-                if dna_sequence[j:j+3] in stop_codons:
-                    ORFs.append(dna_sequence[i:j+3])
-                    break
-    return ORFs
+def find_all_orfs(dna_sequence: str, min_orf_length: int = 50) -> list:
+    """Find all open reading frames (ORFs) in the six reading frames of a DNA sequence.
+    Args:
+        dna_sequence: The input DNA string (e.g., 'ATGGCTAG').
+        min_orf_length: Minimum length of ORFs to consider (default is 50)."""
+    all_orfs = []
+    strands = {
+        'forward': dna_sequence,
+        'reverse': reverse_complement(dna_sequence)
+    }
+
+    start_codon = 'ATG'
+    stop_codons = ['TAA', 'TAG', 'TGA']
+
+    for strand_name, sequence in strands.items():
+        for frame in range(3): # Corresponds to starting at positions 0, 1, and 2
+            # Find all the start and stop codon positions in the current reading frame
+            starts = [i for i in range(frame, len(sequence), 3) if sequence[i:i+3] == start_codon]
+            stops = [i for i in range(frame, len(sequence), 3) if sequence[i:i+3] in stop_codons]
+
+            # For each start codon, find the first stop codon that follows
+            for start_pos in starts:
+                for stop_pos in stops:
+                    if stop_pos > start_pos:
+                        orf = sequence[start_pos:stop_pos+3]
+                        if len(orf) >= min_orf_length:
+                            all_orfs.append(orf)
+                        break  # Stop after the first valid stop codon for this start codon
+    return all_orfs
 
 def translate_rna_to_protein(rna_sequence: str) -> str:
     """
@@ -140,7 +164,7 @@ def main():
     print('\n----- Open Reading Frames (ORFs) -----\n')
 
     # Find and display open reading frames (ORFs)
-    orfs = find_open_reading_frames(dna_sequence)
+    orfs = find_all_orfs(dna_sequence)
     if orfs:
         print(f'Open Reading Frames (ORFs) found: {", ".join(orfs)}\n')
         print(f'Total number of ORFs found: {len(orfs)}\n')
