@@ -1,273 +1,263 @@
 # A light weight DNA to RNA transcription tool
 
 # Dependencies
+import json
 import create_report
 import datetime
 import os
+from typing import TypeVar, Dict, Any
 
-# Define the standard codon table as a constant for efficiency.
+# TypeVar to create a generic type
+_T = TypeVar("_T")
+
+# The standard codon table
 CODON_TABLE = {
-    # Phenylalanine (F)
-    'UUU': 'F', 'UUC': 'F',
-    # Leucine (L)
-    'UUA': 'L', 'UUG': 'L', 'CUU': 'L', 'CUC': 'L', 'CUA': 'L', 'CUG': 'L',
-    # Isoleucine (I)
-    'AUU': 'I', 'AUC': 'I', 'AUA': 'I',
-    # Methionine (M) / Start
-    'AUG': 'M',
-    # Valine (V)
-    'GUU': 'V', 'GUC': 'V', 'GUA': 'V', 'GUG': 'V',
-    # Serine (S)
-    'UCU': 'S', 'UCC': 'S', 'UCA': 'S', 'UCG': 'S', 'AGU': 'S', 'AGC': 'S',
-    # Proline (P)
-    'CCU': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
-    # Threonine (T)
-    'ACU': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
-    # Alanine (A)
-    'GCU': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
-    # Tyrosine (Y)
-    'UAU': 'Y', 'UAC': 'Y',
-    # Histidine (H)
-    'CAU': 'H', 'CAC': 'H',
-    # Glutamine (Q)
-    'CAA': 'Q', 'CAG': 'Q',
-    # Asparagine (N)
-    'AAU': 'N', 'AAC': 'N',
-    # Lysine (K)
-    'AAA': 'K', 'AAG': 'K',
-    # Aspartic Acid (D)
-    'GAU': 'D', 'GAC': 'D',
-    # Glutamic Acid (E)
-    'GAA': 'E', 'GAG': 'E',
-    # Cysteine (C)
-    'UGU': 'C', 'UGC': 'C',
-    # Tryptophan (W)
-    'UGG': 'W',
-    # Arginine (R)
-    'CGU': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R', 'AGA': 'R', 'AGG': 'R',
-    # Glycine (G)
-    'GGU': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G',
-    # Stop Codons (translates to an empty string to terminate translation)
-    'UAA': '', 'UAG': '', 'UGA': ''
+    'UUU': 'F', 'UUC': 'F', 'UUA': 'L', 'UUG': 'L', 'CUU': 'L', 'CUC': 'L',
+    'CUA': 'L', 'CUG': 'L', 'AUU': 'I', 'AUC': 'I', 'AUA': 'I', 'AUG': 'M',
+    'GUU': 'V', 'GUC': 'V', 'GUA': 'V', 'GUG': 'V', 'UCU': 'S', 'UCC': 'S',
+    'UCA': 'S', 'UCG': 'S', 'AGU': 'S', 'AGC': 'S', 'CCU': 'P', 'CCC': 'P',
+    'CCA': 'P', 'CCG': 'P', 'ACU': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
+    'GCU': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A', 'UAU': 'Y', 'UAC': 'Y',
+    'CAU': 'H', 'CAC': 'H', 'CAA': 'Q', 'CAG': 'Q', 'AAU': 'N', 'AAC': 'N',
+    'AAA': 'K', 'AAG': 'K', 'GAU': 'D', 'GAC': 'D', 'GAA': 'E', 'GAG': 'E',
+    'UGU': 'C', 'UGC': 'C', 'UGG': 'W', 'CGU': 'R', 'CGC': 'R', 'CGA': 'R',
+    'CGG': 'R', 'AGA': 'R', 'AGG': 'R', 'GGU': 'G', 'GGC': 'G', 'GGA': 'G',
+    'GGG': 'G', 'UAA': '', 'UAG': '', 'UGA': ''
 }
 
-# Store information for report (change this to a class)
-sequence_info = {
-    'dna_seq' : '',
-    'dna_seq_len' : 0,
-    'dna_gc_content' : 0.0,
-    'orfs_amount' : 0,
-    'orfs' : [],
-    'orfs_gc' : [],
-    'raw_rna_seq' : '',
-    'orfs_rna' : [],
-    'orfs_protein' : [],
-    'protein_seq' : ''
-    }
-
-
-# Request the user for a DNA sequence
-def get_dna_sequence() -> str:
-    dna_sequence = input("Please enter a DNA sequence (A, T, C, G): ").upper()
-    if not all(base in "ATCG" for base in dna_sequence):
-        raise ValueError("Invalid DNA sequence. Please use only A, T, C, and G.")
-    return dna_sequence.upper()
-
-# Generate the reverse complement of a DNA sequence
-def reverse_complement(dna_sequence: str) -> str:
-    """Generates the reverse complement of a DNA sequence."""
-    complement_map = str.maketrans('ATCG', 'TAGC')
-    return dna_sequence.upper().translate(complement_map)[::-1]
-
-# Find the length of the DNA sequence
-# def get_dna_length(dna_sequence: str) -> int:
-#     return len(dna_sequence)
-
-# Find the GC content of the DNA sequence
-def get_gc_content(dna_sequence: str) -> float:
-    if not dna_sequence:
-        return 0.0
-    gc_count = dna_sequence.count('G') + dna_sequence.count('C')
-    # Calculate GC content as a percentage
-    gc_content = (gc_count / len(dna_sequence)) * 100
-    return gc_content
-
-# Transcribe a DNA sequence to an RNA sequence
-def transcribe_dna_to_rna(dna_sequence: str) -> str:
-    """Transcribes a single DNA string to an RNA string."""
-    return dna_sequence.replace('T', 'U')
-
-# Find all open reading frames (ORFs)
-def find_all_orfs(dna_sequence: str, min_orf_length: int = 50) -> list:
-    """Find all open reading frames (ORFs) in the six reading frames of a DNA sequence.
-    Args:
-        dna_sequence: The input DNA string (e.g., 'ATGGCTAG').
-        min_orf_length: Minimum length of ORFs to consider (default is 50)."""
-    all_orfs = []
-    strands = {
-        'forward': dna_sequence,
-        'reverse': reverse_complement(dna_sequence)
-    }
-
-    start_codon = 'ATG'
-    stop_codons = ['TAA', 'TAG', 'TGA']
-
-    for strand_name, sequence in strands.items():
-        for frame in range(3): # Corresponds to starting at positions 0, 1, and 2
-            # Find all the start and stop codon positions in the current reading frame
-            starts = [i for i in range(frame, len(sequence), 3) if sequence[i:i+3] == start_codon]
-            stops = [i for i in range(frame, len(sequence), 3) if sequence[i:i+3] in stop_codons]
-
-            # For each start codon, find the first stop codon that follows
-            for start_pos in starts:
-                for stop_pos in stops:
-                    if stop_pos > start_pos:
-                        orf = sequence[start_pos:stop_pos+3]
-                        if len(orf) >= min_orf_length:
-                            all_orfs.append(orf)
-                        break  # Stop after the first valid stop codon for this start codon
-    return all_orfs
-
-def translate_rna_to_protein(rna_sequence: str, codon_table: dict = CODON_TABLE) -> str:
+class SequenceInfo:
     """
-    Translates an RNA sequence into a protein sequence until a stop codon is reached.
+    Holds and processes DNA, RNA, and protein sequence information.
+    This class is now serializable to and from a dictionary.
+    """
+    def __init__(self, dna_seq: str = ''):
+        self.dna_seq: str = dna_seq
+        self.header: str = ''
+        self.dna_seq_len: int = len(dna_seq)
+        self.dna_gc_content: float = self.calculate_gc_content()
+        self.raw_rna_seq: str = self.transcribe_dna_to_rna(self.dna_seq)
+        self.orfs: list[str] = self.find_all_orfs()
+        self.orfs_amount: int = len(self.orfs)
+        self.orfs_gc: list[float] = [self.calculate_gc_content(orf) for orf in self.orfs]
+        self.orfs_rna: list[str] = [self.transcribe_dna_to_rna(orf) for orf in self.orfs]
+        self.orfs_protein: list[str] = [self.translate_rna_to_protein(rna) for rna in self.orfs_rna]
+        self.protein_seq: str = self.translate_rna_to_protein(self.raw_rna_seq)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializes the object attributes to a dictionary."""
+        return self.__dict__
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SequenceInfo":
+        """Creates a SequenceInfo instance from a dictionary."""
+        instance = cls(data.get('dna_seq', ''))
+        for key, value in data.items():
+            setattr(instance, key, value)
+        return instance
+
+    def reverse_complement(self) -> str:
+        """Generates the reverse complement of the instance's DNA sequence."""
+        if not self.dna_seq:
+            return ""
+        complement_map = str.maketrans('ATCG', 'TAGC')
+        return self.dna_seq.upper().translate(complement_map)[::-1]
+
+    def calculate_gc_content(self, sequence: str | None = None) -> float:
+        """Calculates GC content of a given sequence or the instance's DNA sequence."""
+        seq = self.dna_seq if sequence is None else sequence
+        if not seq:
+            return 0.0
+        gc_count = seq.count('G') + seq.count('C')
+        return (gc_count / len(seq)) * 100
+
+    def transcribe_dna_to_rna(self, sequence: str | None = None) -> str:
+        """Transcribes a given DNA sequence to RNA."""
+        seq_to_transcribe = self.dna_seq if sequence is None else sequence
+        if not seq_to_transcribe:
+            return ''
+        return seq_to_transcribe.replace('T', 'U')
+
+    def find_all_orfs(self, min_orf_length: int = 50) -> list[str]:
+        """Finds all open reading frames (ORFs) in the six reading frames."""
+        all_orfs = []
+        strands = {'forward': self.dna_seq, 'reverse': self.reverse_complement()}
+        start_codon = 'ATG'
+        stop_codons = ['TAA', 'TAG', 'TGA']
+
+        for sequence in strands.values():
+            for frame in range(3):
+                starts = [i for i in range(frame, len(sequence), 3) if sequence[i:i+3] == start_codon]
+                stops = [i for i in range(frame, len(sequence), 3) if sequence[i:i+3] in stop_codons]
+                for start_pos in starts:
+                    for stop_pos in stops:
+                        if stop_pos > start_pos:
+                            orf = sequence[start_pos:stop_pos + 3]
+                            if len(orf) >= min_orf_length:
+                                all_orfs.append(orf)
+                            break
+        return all_orfs
+
+    def translate_rna_to_protein(self, rna_sequence: str, codon_table: dict | None = None) -> str:
+        """
+        Translates an RNA sequence into a protein sequence, starting from the first
+        start codon (AUG) until a stop codon is reached.
+        """
+        if codon_table is None:
+            codon_table = CODON_TABLE
+
+        # Find the first start codon 'AUG'
+        start_codon_pos = rna_sequence.find('AUG')
+        if start_codon_pos == -1:
+            return ""  # No start codon found, so no protein
+
+        protein_sequence = []
+        # Start translation from the found start codon
+        for i in range(start_codon_pos, len(rna_sequence) - 2, 3):
+            codon = rna_sequence[i:i+3]
+            amino_acid = codon_table.get(codon, '')
+            
+            # Stop translation if a stop codon is found
+            if not amino_acid:
+                break
+            
+            protein_sequence.append(amino_acid)
+            
+        return "".join(protein_sequence)
+
+def get_dna_sequence() -> str:
+    """Requests and validates a DNA sequence from the user."""
+    while True:
+        dna_sequence = input("Please enter a DNA sequence (A, T, C, G): ").upper()
+        if all(base in "ATCG" for base in dna_sequence):
+            return dna_sequence
+        print("Invalid DNA sequence. Please use only A, T, C, and G.")
+
+# Add function to import several sequences and header from a fasta file
+def import_sequence_from_fasta(file_path: str) -> list[tuple[str, str]]:
+    """
+    Imports DNA sequences and their headers from a FASTA file.
+    and removes any whitespace or newline characters.
 
     Args:
-        rna_sequence: The input RNA string (e.g., 'AUGGCUAG').
-        codon_table: Optional codon table in dict structure. Default is standard.
+        file_path (str): The path to the FASTA file.
 
     Returns:
-        The resulting protein sequence as a string (e.g., 'MA').
+        tuple[str, str]: A tuple containing the header and the DNA sequence.
     """
-    protein_sequence = []
-    # Iterate through the RNA sequence in steps of 3 (codon length)
-    for i in range(0, len(rna_sequence), 3):
-        # Ensure we have a full codon to translate
-        if i + 3 > len(rna_sequence):
-            break
-            
-        codon = rna_sequence[i:i+3]
-        amino_acid = codon_table.get(codon, '') # Use .get() for safety against unknown codons
+    with open(file_path, 'r') as fasta_file:
+        fasta_content = fasta_file.read()
+        # Extract the header (first line) and sequence (remove whitespace)
+        headers = []
+        sequences = []
+        for line in fasta_content.splitlines():
+            line = line.strip()
+            if line.startswith(">"):
+                headers.append(line[1:])  # Remove '>' from header
+            else:
+                sequences.append(line)
+        # Combine headers and sequences into a list of tuples
+        return list(zip(headers, sequences))
 
-        # If the amino acid is an empty string (stop codon), stop translation.
-        if not amino_acid:
-            break
-        
-        protein_sequence.append(amino_acid)
-
-    return "".join(protein_sequence)
-
-
-
-# Define the main function
 def main():
-    # Set up the output directory for reports
-    REPORTS_DIR =  "reports"
+    """Main function to run the DNA analysis tool."""
+    REPORTS_DIR = "reports"
     os.makedirs(REPORTS_DIR, exist_ok=True)
 
-    """Main function to run the DNA to RNA transcription tool."""
-    # Prompt the user for a DNA sequence
-    while True:
-        try:
-            dna_sequence = get_dna_sequence()
-            sequence_info['dna_seq'] = dna_sequence
-            print(f'Using DNA sequence: {dna_sequence}')
-            break
-        except ValueError as e:
-            print(e)
+    sequences_to_process = []
 
-    print('\n----- Sequence Statistics -----\n')
-    # Display the length of the DNA sequence
-    sequence_info['dna_seq_len'] = len(dna_sequence)
-    print(f'DNA sequence length: {sequence_info["dna_seq_len"]} nucleotides\n')
+    try:
+        # --- PHASE 1: Data Collection ---
+        input_method = input("Choose input method (1: Manual, 2: Fasta file): ").strip()
+        
+        if input_method == '2':
+            # FASTA file input: process multiple sequences
+            fasta_file_path = input("Enter the path to the FASTA file: ").strip()
+            if not os.path.isfile(fasta_file_path):
+                raise FileNotFoundError(f"The specified file does not exist: {fasta_file_path}")
+            
+            # import_sequence_from_fasta should return a list of (header, sequence) tuples
+            imported_sequences = import_sequence_from_fasta(fasta_file_path)
+            if not imported_sequences:
+                print("FASTA file is empty or could not be parsed.")
+                return
 
-    # Display the GC content of the DNA sequence
-    sequence_info['dna_gc_content'] = get_gc_content(dna_sequence)
-    print(f'GC content: {sequence_info["dna_gc_content"]:.2f}%\n')
+            for header, dna_input in imported_sequences:
+                sequence_info = SequenceInfo(dna_input)
+                sequence_info.header = header
+                sequences_to_process.append(sequence_info)
+            
+        elif input_method == '1':
+            # Manual input: process a single sequence
+            dna_input = get_dna_sequence()
+            sequence_info = SequenceInfo(dna_input)
+            sequence_info.header = "Manual_Input"
+            sequences_to_process.append(sequence_info)
+            
+        else:
+            raise ValueError("Invalid input method selected. Please choose '1' or '2'.")
 
-    print('\n----- Open Reading Frames (ORFs) -----\n')
+        # --- PHASE 2: Analysis and Reporting for each sequence ---
+        if not sequences_to_process:
+            print("No sequences to analyze.")
+            return
 
-    # Find and display open reading frames (ORFs)
-    orfs = find_all_orfs(dna_sequence)
-    if orfs:
-        sequence_info['orfs'] = orfs
-        sequence_info['orfs_amount'] = len(orfs)
-        print(f'Open Reading Frames (ORFs) found: {", ".join(orfs)}\n')
-        print(f'Total number of ORFs found: {sequence_info["orfs_amount"]}\n')
-        # GC content for each ORF, using a list comprehension
-        orf_gc_contents = [get_gc_content(orf) for orf in orfs]
-        sequence_info['orfs_gc'] = orf_gc_contents
-        print(f'GC content for each ORF: {", ".join(f"{gc:.2f}%" for gc in orf_gc_contents)}\n')
-    else:
-        sequence_info['orfs'] = ['No ORFs present']
-        sequence_info['orfs_amount'] = 0
-        sequence_info['orfs_gc'] = [None]
-        print('No Open Reading Frames (ORFs) found.\n')
+        print(f"\nFound {len(sequences_to_process)} sequence(s) to analyze.")
 
-    print('\n----- Transcription -----\n')
+        for i, sequence_info in enumerate(sequences_to_process, start=1):
+            print(f"\n\n--- Analyzing Sequence {i} of {len(sequences_to_process)}: '{sequence_info.header}' ---")
+            
+            # --- Print Statistics ---
+            print('\n--- Sequence Statistics -----')
+            print(f'DNA sequence length: {sequence_info.dna_seq_len} nucleotides')
+            print(f'GC content: {sequence_info.dna_gc_content:.2f}%')
 
-    # Transcribe the entire DNA sequence to RNA
-    transcribed_rna = transcribe_dna_to_rna(dna_sequence)
-    sequence_info['raw_rna_seq'] = transcribed_rna
-    print(f'Transcribed RNA sequence: {transcribed_rna}\n')
+            # --- ORFs ---
+            print('\n----- Open Reading Frames (ORFs) -----')
+            print(f'Number of ORFs found: {sequence_info.orfs_amount}')
+            if sequence_info.orfs:
+                for orf_idx, orf in enumerate(sequence_info.orfs, start=1):
+                    print(f'   ORF {orf_idx}: {orf} ({len(orf)} bp, GC: {sequence_info.orfs_gc[orf_idx-1]:.2f}%)')
+                
+                # --- Transcription & Translation ---
+                print('\n----- Transcription & Translation -----')
+                print(f'Transcribed RNA from full sequence: {sequence_info.raw_rna_seq}')
+                print(f'Translated Protein from full sequence: {sequence_info.protein_seq}\n')
+                
+                for orf_idx, (orf_rna, orf_protein) in enumerate(zip(sequence_info.orfs_rna, sequence_info.orfs_protein), start=1):
+                    print(f'ORF {orf_idx} RNA: {orf_rna}')
+                    print(f'ORF {orf_idx} Protein: {orf_protein}\n')
+            else:
+                print("No Open Reading Frames (ORFs) of minimum length found.")
 
-    # Translate the RNA sequence to a protein sequence starting from the first start codon
-    print("Translating raw RNA from the first start codon (AUG)...")
-    start_position = transcribed_rna.find('AUG') # Find the index of the first 'AUG'
+            # --- Report Generation ---
+            print('----- Report Generation -----')
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            
+            # Sanitize header for use in filename
+            sanitized_header = "".join(c for c in sequence_info.header if c.isalnum() or c in ('_', '-')).rstrip()
+            base_name = os.path.join(REPORTS_DIR, f"analysis_{sanitized_header}_{today}")
+            
+            unique_base_name = create_report.generate_report_filename(base_name)
+            print(f"Report files will be based on: {unique_base_name}")
 
-    if start_position != -1:
-        # If a start codon is found, translate the sequence from that point
-        protein_sequence = translate_rna_to_protein(transcribed_rna[start_position:])
-        print(f"Translated protein from first ORF: {protein_sequence}\n")
-    else:
-        # If no start codon is found, the sequence cannot be translated
-        protein_sequence = "No start codon (AUG) found."
-        print("No start codon (AUG) found in the raw sequence.\n")
+            # Create and write text report
+            report_content = create_report.create_report_content(sequence_info)
+            if create_report.write_report_to_file(report_content, unique_base_name):
+                print(f"Text report saved: {unique_base_name}.txt")
+            else:
+                print("Failed to create the text report.")
 
-    sequence_info['protein_seq'] = protein_sequence
+            # Serialize SequenceInfo to a dictionary and write to JSON
+            if create_report.write_data_to_json(sequence_info.to_dict(), unique_base_name):
+                print(f"JSON report saved: {unique_base_name}.json")
+            else:
+                print("Failed to create the JSON report.")
 
-    # Transcribe the ORFs to RNA using the streamlined approach
-    if orfs:
-        # STREAMLINED: Reusing the transcribe_dna_to_rna function with a list comprehension
-        rna_orfs = [transcribe_dna_to_rna(orf) for orf in orfs]
-        print(f'Transcribed RNA from ORFs: {", ".join(rna_orfs)}\n')
-        sequence_info['orfs_rna'] = rna_orfs
-        # Translate the RNA sequences to protein sequences
-        protein_sequences = [translate_rna_to_protein(rna) for rna in rna_orfs]
-        print(f'Translated protein sequences from ORFs: {", ".join(protein_sequences)}\n')
-        sequence_info['orfs_protein'] = protein_sequences
-    else:
-        print('No ORFs to transcribe to RNA.\n')
-        sequence_info['orfs_rna'] = [None]
-        sequence_info['orfs_protein'] = [None]
+    except (ValueError, FileNotFoundError) as e:
+        print(f"\nAn error occurred: {e}")
+    except Exception as e:
+        # Catch any other unexpected errors
+        print(f"\nAn unexpected error occurred: {e}")
 
-    #-- Report Generation --
-    
-    # Define a base name for the report file
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
-    desired_base_name = os.path.join(REPORTS_DIR, f"dna_analysis_report_{today}")
-
-    # Generate a unique base name for the report file to avoid overwriting
-    unique_base_name = create_report.generate_report_filename(desired_base_name)
-    print(f"Report will be saved as: {unique_base_name}.txt and {unique_base_name}.json")
-
-    # Create the report content using the create_report module
-    report_content = create_report.create_report_content(sequence_info)
-
-    # Write the report to a file
-    if create_report.write_report_to_file(report_content, unique_base_name):
-        print("Report successfully created and saved.")
-    else:
-        print("Failed to create the report.")
-    
-    # Write the report to a JSON file
-    if create_report.write_data_to_json(sequence_info, unique_base_name):
-        print("JSON report successfully created and saved.")
-    else:
-        print("Failed to create the JSON report.")
-
-
-
-# Call the main function
 if __name__ == "__main__":
     main()
