@@ -1,39 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
-    <meta charset="UTF-8">
-    <title>DNAseqcer - Lightweight DNA Analysis Tool</title>
-    <style>
-      body { font-family: Arial, sans-serif; margin: 2em; background: #f9f9f9; }
-      h1 { color: #2c3e50; }
-      code { background: #ee; padding: 2px 4px; border-radius: 4px; }
-      .section { margin-bottom: 2em; }
-    </style>
-</style>
-  <body>
+<head>
+  <meta charset="UTF-8">
+  <title>DNAseqer - Lightweight DNA Analysis Tool</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6f8;
+      color: #2c3e50;
+    }
+    header {
+      background-color: #2c3e50;
+      color: white;
+      padding: 2em;
+      text-align: center;
+    }
+    nav {
+      background-color: #2980b9;
+      padding: 1em;
+      text-align: center;
+    }
+    nav a {
+      color: white;
+      margin: 0 1em;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    main {
+      max-width: 800px;
+      margin: 2em auto;
+      padding: 0 1em;
+    }
+    section {
+      background-color: white;
+      padding: 1.5em;
+      margin-bottom: 2em;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    footer {
+      text-align: center;
+      padding: 1em;
+      background-color: #ecf0f1;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <header>
     <h1>DNAseqer</h1>
-    <p>A lightweight and simple DNA sequence analysis tool written in Python.</p>
+    <p>Lightweight DNA sequence analysis tool in Python</p>
+  </header>
 
-    <div class="section"> 
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="about.html">About</a>
+    <a href="usage.html">Usage</a>
+    <a href="contact.html">Contact</a>
+  </nav>
+
+  <main>
+    <section>
+      <h2>Why DNAseqer?</h2>
+      <p>DNAseqer is designed for quick, simple DNA analysis without heavy dependencies.</p>
+    </section>
+
+    <section>
       <h2>Features</h2>
       <ul>
-        <li><strong>Lightweight:</strong> No heavy dependencies.</li>
-        <li><strong>Simple to Use:</strong> Command-line interface for quick analyses.</li>
-        <li><strong>Work in Progress:</strong> More features coming soon.</li>
+        <li>Transcribes DNA to RNA</li>
+        <li>Translates RNA to protein</li>
+        <li>Finds open reading frames (ORFs)</li>
+        <li>Calculates GC content</li>
+        <li>Lightweight and easy to use</li>
       </ul>
-    </div>
+    </section>
 
-    <div class="section">
-      <h2>Installation</h2>
-      <p>Clone the repository and run the script:</p>
-      <pre><code>git clone https://github.com/no1berg/DNAseqer.git
-      cd dnaseqer
-      python dnaseqer.py</code></pre>
-    </div>
+    <section>
+      <h2>Get Started</h2>
+      <p>Visit the <a href="usage.html">Usage Guide</a> or check out the code on <a href="https://github.com/no1berg/DNAseqer">GitHub</a>.</p>
+    </section>
+  </main>
 
-    <div class="section">
-      <h2>Source Code</h2>
-      <p>Check out the full code on <a href="https://github.com/no1berg/DNAseqer.git">github </a></p>
-    </div>
-    
-  </body>
+  <footer>
+    &copy; 2024 DNAseqer Project
+  </footer>
+</body>
 </html>
